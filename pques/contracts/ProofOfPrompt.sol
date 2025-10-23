@@ -201,6 +201,7 @@ contract ProofOfPrompt {
      */
     function verifyContent(bytes32 contentHash)
         external
+        view
         returns (
             bool exists,
             address author,
@@ -213,10 +214,7 @@ contract ProofOfPrompt {
             // Retrieve the stored data
             ContentRegistry storage content = registry[contentHash];
             
-            // Emit verification event for tracking
-            emit ContentVerified(contentHash, content.author, content.timestamp, true);
-            
-            // Return all the details
+            // Return all the details (view function cannot emit events)
             return (
                 true,                      // Content exists
                 content.author,            // Who registered it
@@ -226,7 +224,6 @@ contract ProofOfPrompt {
         }
         
         // Content not found - return empty result
-        emit ContentVerified(contentHash, address(0), 0, false);
         return (false, address(0), 0, "");
     }
 
