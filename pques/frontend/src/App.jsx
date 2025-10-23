@@ -427,6 +427,9 @@ export default function App() {
   // Results from verification
   const [verifyResult, setVerifyResult] = useState(null);
 
+  // Admin preview toggle state
+  const [adminPreviewOpen, setAdminPreviewOpen] = useState(false);
+
   
   // ========== PLATFORM STATS ==========
   
@@ -582,6 +585,48 @@ export default function App() {
     }
   };
 
+  // ========== LOCAL STORAGE HELPERS ==========
+  /**
+   * Persist a successful registration locally so we can show prompt/response snippets on verify.
+   */
+  const saveLocalRegistration = (hash, data) => {
+    try {
+      const key = 'popRegistrations';
+      const existing = JSON.parse(localStorage.getItem(key) || '{}');
+      existing[hash] = {
+        prompt: data.prompt || '',
+        output: data.output || '',
+        createdAtMs: data.createdAtMs || Date.now(),
+        author: data.author || null,
+      };
+      localStorage.setItem(key, JSON.stringify(existing));
+    } catch (err) {
+      // Best effort only; ignore storage errors
+      console.warn('Could not save local registration', err);
+    }
+  };
+
+  /**
+   * Load locally stored registration by hash, if present.
+   */
+  const getLocalRegistration = (hash) => {
+    try {
+      const key = 'popRegistrations';
+      const existing = JSON.parse(localStorage.getItem(key) || '{}');
+      return existing[hash] || null;
+    } catch {
+      return null;
+    }
+  };
+
+  /**
+   * Create a short snippet of text (first N chars with ellipsis if needed).
+   */
+  const makeSnippet = (text, max = 30) => {
+    if (!text || typeof text !== 'string') return '';
+    return text.length > max ? text.slice(0, max) + '…' : text;
+  };
+
   
   // ========== REGISTER FUNCTION ==========
   
@@ -641,6 +686,14 @@ export default function App() {
       // Copy hash to clipboard for easy sharing
       navigator.clipboard.writeText(hash).catch(() => {
         console.log('Could not copy to clipboard');
+      });
+
+      // Save prompt/output locally for snippet previews on future verification
+      saveLocalRegistration(hash, {
+        prompt,
+        output,
+        createdAtMs: timestamp,
+        author: account,
       });
 
       // Update stats
@@ -711,6 +764,13 @@ export default function App() {
         // Content found! Format results nicely
         const date = new Date(Number(timestamp) * 1000).toLocaleString();
         const shortAddress = `${author.substring(0, 6)}...${author.substring(38)}`;
+        const local = getLocalRegistration(verifyHash);
+        const promptSnippet = local && local.prompt
+          ? makeSnippet(local.prompt)
+          : 'Example prompt snippet (mock)';
+        const responseSnippet = local && local.output
+          ? makeSnippet(local.output)
+          : 'Example response snippet (mock)';
         
         setVerifyResult({
           exists: true,
@@ -719,6 +779,8 @@ export default function App() {
           timestamp: date,
           timestampUnix: timestamp.toString(),
           promptIPFS,
+          promptSnippet,
+          responseSnippet,
         });
       } else {
         // Content not found
@@ -915,6 +977,14 @@ export default function App() {
                     <h3>✅ Content Verified!</h3>
                     <div className="verification-details">
                       <div className="detail-row">
+                        <strong>Prompt snippet:</strong>
+                        <code>{verifyResult.promptSnippet}</code>
+                      </div>
+                      <div className="detail-row">
+                        <strong>Response snippet:</strong>
+                        <code>{verifyResult.responseSnippet}</code>
+                      </div>
+                      <div className="detail-row">
                         <strong>Status:</strong>
                         <span className="status-badge">REGISTERED</span>
                       </div>
@@ -964,6 +1034,23 @@ export default function App() {
                       </ul>
                     </div>
                   </>
+                )}
+              </div>
+            )}
+
+            {verifyResult && (
+              <div className="admin-preview">
+                <button
+                  type="button"
+                  className="admin-btn"
+                  onClick={() => setAdminPreviewOpen((open) => !open)}
+                >
+                  Admin Access (Preview)
+                </button>
+                {adminPreviewOpen && (
+                  <div className="admin-message">
+                    Admin view: Full prompt and response data can be retrieved securely by authorized users.
+                  </div>
                 )}
               </div>
             )}
