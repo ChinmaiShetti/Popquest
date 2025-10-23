@@ -376,6 +376,34 @@ const CONTRACT_ABI = [
 // ============ MAIN APP COMPONENT ============
 
 export default function App() {
+  // ========== LOCAL STORAGE HELPERS ==========
+  const LOCAL_STORAGE_PREFIX = 'proof-of-prompt:';
+
+  const truncateSnippet = (text, limit = 30) => {
+    if (typeof text !== 'string') return '';
+    return text.length > limit ? `${text.slice(0, limit)}…` : text;
+  };
+
+  const saveLocalRecord = (hash, record) => {
+    try {
+      if (typeof window === 'undefined') return;
+      const key = `${LOCAL_STORAGE_PREFIX}${String(hash).toLowerCase()}`;
+      window.localStorage.setItem(key, JSON.stringify(record));
+    } catch (e) {
+      console.log('Local record save failed', e);
+    }
+  };
+
+  const loadLocalRecord = (hash) => {
+    try {
+      if (typeof window === 'undefined') return null;
+      const key = `${LOCAL_STORAGE_PREFIX}${String(hash).toLowerCase()}`;
+      const raw = window.localStorage.getItem(key);
+      return raw ? JSON.parse(raw) : null;
+    } catch (e) {
+      return null;
+    }
+  };
   
   // ========== WALLET STATE ==========
   
@@ -426,6 +454,7 @@ export default function App() {
   
   // Results from verification
   const [verifyResult, setVerifyResult] = useState(null);
+  const [showAdminPreview, setShowAdminPreview] = useState(false);
 
   
   // ========== PLATFORM STATS ==========
@@ -624,6 +653,14 @@ export default function App() {
       
       setRegisterStatus(`⏳ Sending to blockchain...\nHash: ${hash.substring(0, 20)}...`);
 
+      // Save local record for future snippet retrieval (off-chain only)
+      saveLocalRecord(hash, {
+        prompt,
+        output,
+        author: account,
+        clientTimestamp: timestamp,
+      });
+
       // Step 3: Call the smart contract
       // This triggers MetaMask to ask for signature/confirmation
       const tx = await contract.registerContent(hash, '');
@@ -711,6 +748,13 @@ export default function App() {
         // Content found! Format results nicely
         const date = new Date(Number(timestamp) * 1000).toLocaleString();
         const shortAddress = `${author.substring(0, 6)}...${author.substring(38)}`;
+        const localRecord = loadLocalRecord(verifyHash);
+        const promptSnippet = localRecord?.prompt
+          ? truncateSnippet(localRecord.prompt)
+          : 'Mock prompt snippet (not on-chain)';
+        const responseSnippet = localRecord?.output
+          ? truncateSnippet(localRecord.output)
+          : 'Mock response snippet (not on-chain)';
         
         setVerifyResult({
           exists: true,
@@ -719,6 +763,8 @@ export default function App() {
           timestamp: date,
           timestampUnix: timestamp.toString(),
           promptIPFS,
+          promptSnippet,
+          responseSnippet,
         });
       } else {
         // Content not found
@@ -913,6 +959,25 @@ export default function App() {
                 {verifyResult.exists && (
                   <>
                     <h3>✅ Content Verified!</h3>
+                    {/* Summary card with required fields */}
+                    <div className="summary-card">
+                      <div className="summary-row">
+                        <strong>Prompt snippet:</strong>
+                        <span className="summary-value">{verifyResult.promptSnippet}</span>
+                      </div>
+                      <div className="summary-row">
+                        <strong>Response snippet:</strong>
+                        <span className="summary-value">{verifyResult.responseSnippet}</span>
+                      </div>
+                      <div className="summary-row">
+                        <strong>Registered By:</strong>
+                        <code className="summary-code">{verifyResult.author}</code>
+                      </div>
+                      <div className="summary-row">
+                        <strong>Registered On:</strong>
+                        <span className="summary-value">{verifyResult.timestamp}</span>
+                      </div>
+                    </div>
                     <div className="verification-details">
                       <div className="detail-row">
                         <strong>Status:</strong>
@@ -945,6 +1010,21 @@ export default function App() {
                       This content has been permanently recorded on the Sepolia blockchain 
                       and cannot be modified or deleted.
                     </p>
+                    {/* Admin Access (Preview) */}
+                    <div className="admin-access">
+                      <button
+                        type="button"
+                        className="preview-btn"
+                        onClick={() => setShowAdminPreview((prev) => !prev)}
+                      >
+                        Admin Access (Preview)
+                      </button>
+                      {showAdminPreview && (
+                        <div className="admin-preview-message">
+                          Admin view: Full prompt and response data can be retrieved securely by authorized users.
+                        </div>
+                      )}
+                    </div>
                   </>
                 )}
                 
