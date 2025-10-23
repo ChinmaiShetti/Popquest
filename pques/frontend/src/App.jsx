@@ -369,7 +369,7 @@ const CONTRACT_ABI = [
           "type": "string"
         }
       ],
-      "stateMutability": "nonpayable",
+      "stateMutability": "view",
       "type": "function"
     }
   ];
@@ -481,8 +481,8 @@ export default function App() {
    */
   const handleConnect = async () => {
     try {
-      if (!provider) {
-        setRegisterStatus('❌ Provider not initialized');
+      if (typeof window === 'undefined' || !window.ethereum) {
+        setRegisterStatus('❌ MetaMask not detected');
         return;
       }
 
@@ -503,6 +503,12 @@ export default function App() {
       setSigner(s);
       setAccount(addr);
       setIsConnected(true);
+
+      // Validate contract address before initializing contract
+      if (!CONTRACT_ADDRESS || typeof CONTRACT_ADDRESS !== 'string' || CONTRACT_ADDRESS.length !== 42) {
+        setRegisterStatus('❌ Missing or invalid VITE_CONTRACT_ADDRESS. Configure your .env.local');
+        return;
+      }
 
       // Initialize contract with the signer
       // Now we can call functions that modify state (write functions)
