@@ -1,5 +1,6 @@
 // frontend/src/App.jsx
 import React, { useState, useEffect } from 'react';
+import Bytez from 'bytez.js';
 import { ethers } from 'ethers';
 import './App.css';
 
@@ -7,6 +8,8 @@ import './App.css';
 
 // Get contract address from environment variables (set in .env.local)
 const CONTRACT_ADDRESS = import.meta.env.VITE_CONTRACT_ADDRESS;
+const BYTEZ_API_KEY = import.meta.env.VITE_BYTEZ_API_KEY;
+const BYTEZ_MODEL_ID = 'openai/gpt-4.1';
 
 /**
  * CONTRACT ABI (Application Binary Interface)
@@ -436,6 +439,7 @@ export default function App() {
   
   // The AI output they're registering
   const [output, setOutput] = useState('');
+  const [isGenerating, setIsGenerating] = useState(false);
   
   // Are we currently registering? (shows loading state)
   const [isRegistering, setIsRegistering] = useState(false);
@@ -611,6 +615,61 @@ export default function App() {
     }
   };
 
+  /**
+   * Generate AI output using Bytez GPT-4.1 based on the provided prompt.
+   */
+  const generateAIOutput = async (userPrompt) => {
+    if (!userPrompt || !userPrompt.trim()) {
+      throw new Error('Prompt is empty');
+    }
+    if (!BYTEZ_API_KEY) {
+      throw new Error('Missing VITE_BYTEZ_API_KEY. Configure your .env.local');
+    }
+
+    const sdk = new Bytez(BYTEZ_API_KEY);
+    const model = sdk.model(BYTEZ_MODEL_ID);
+
+    const messages = [
+      { role: 'user', content: userPrompt.trim() },
+    ];
+
+    let runResult;
+    try {
+      // Prefer options with max_tokens and temperature
+      runResult = await model.run(messages, { max_tokens: 150, temperature: 0.6 });
+    } catch (e) {
+      // Fallback in case the SDK version doesn't accept options param
+      try {
+        runResult = await model.run(messages);
+      } catch (inner) {
+        throw new Error(inner?.message || 'AI generation failed');
+      }
+    }
+
+    const { error, output: modelOutput } = runResult || {};
+    if (error) {
+      const message = typeof error === 'string' ? error : (error?.message || 'AI generation error');
+      throw new Error(message);
+    }
+
+    let text = '';
+    if (typeof modelOutput === 'string') {
+      text = modelOutput;
+    } else if (Array.isArray(modelOutput)) {
+      text = modelOutput
+        .map((p) => (typeof p === 'string' ? p : (p?.content ?? '')))
+        .join('\n');
+    } else if (modelOutput && typeof modelOutput === 'object') {
+      text = modelOutput.text ?? modelOutput.content ?? '';
+    }
+
+    text = (text || '').trim();
+    if (!text) {
+      throw new Error('Empty AI response');
+    }
+    return text;
+  };
+
   
   // ========== REGISTER FUNCTION ==========
   
@@ -632,9 +691,28 @@ export default function App() {
       return;
     }
 
-    if (!prompt.trim() || !output.trim()) {
-      setRegisterStatus('❌ Please fill in both Prompt and Output fields');
+    if (!prompt.trim()) {
+      setRegisterStatus('❌ Please enter a Prompt');
       return;
+    }
+
+    // Auto-generate AI output if it's empty
+    if (!output.trim()) {
+      try {
+        setIsRegistering(true);
+        setIsGenerating(true);
+        setRegisterStatus('⏳ Generating AI output with GPT-4.1...');
+        const aiText = await generateAIOutput(prompt);
+        setOutput(aiText);
+        setRegisterStatus('⏳ Preparing content...');
+      } catch (genErr) {
+        setRegisterStatus(`❌ AI generation failed: ${genErr?.message || 'Unknown error'}`);
+        setIsGenerating(false);
+        setIsRegistering(false);
+        return;
+      } finally {
+        setIsGenerating(false);
+      }
     }
 
     try {
@@ -872,16 +950,44 @@ export default function App() {
                   placeholder="Paste the complete AI-generated response you want to register"
                   value={output}
                   onChange={(e) => setOutput(e.target.value)}
-                  disabled={!isConnected || isRegistering}
+                  disabled={!isConnected || isRegistering || isGenerating}
                   rows="4"
                 />
                 <small>{output.length} characters</small>
               </div>
 
+              <div className="form-group">
+                <button
+                  type="button"
+                  className="preview-btn"
+                  onClick={async () => {
+                    try {
+                      setIsGenerating(true);
+                      setRegisterStatus('⏳ Generating AI output with GPT-4.1...');
+                      const aiText = await generateAIOutput(prompt);
+                      setOutput(aiText);
+                      setRegisterStatus('✅ AI output generated');
+                    } catch (err) {
+                      setRegisterStatus(`❌ AI generation failed: ${err?.message || 'Unknown error'}`);
+                    } finally {
+                      setIsGenerating(false);
+                    }
+                  }}
+                  disabled={!isConnected || isGenerating || isRegistering || !prompt.trim()}
+                >
+                  {isGenerating ? '⏳ Generating...' : '✨ Generate with GPT-4.1'}
+                </button>
+                {!BYTEZ_API_KEY && (
+                  <small style={{ display: 'block', marginTop: '8px' }}>
+                    ⚠️ Bytez API key missing. Set <code>VITE_BYTEZ_API_KEY</code> in your .env.local
+                  </small>
+                )}
+              </div>
+
               <button
                 type="submit"
                 className="submit-btn"
-                disabled={!isConnected || isRegistering || !prompt.trim() || !output.trim()}
+                disabled={!isConnected || isRegistering || isGenerating || !prompt.trim()}
               >
                 {isRegistering 
                   ? '⏳ Registering on blockchain...' 
