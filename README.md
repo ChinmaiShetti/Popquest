@@ -1,6 +1,6 @@
 # Proof of Prompt (Blockchain Project)
 
-🔗 **Overview**
+## 🔗 **Overview**
 
 Proof of Prompt is a decentralized application (dApp) built with **Hardhat**, **Vite**, and **MetaMask**, enabling users to store and verify AI-generated prompts on the **Ethereum blockchain**.  
 This ensures transparency and immutability — every prompt submitted is recorded permanently on-chain.
@@ -53,27 +53,27 @@ Copy code
 git clone https://github.com/<your-username>/proof-of-prompt.git
 cd proof-of-prompt
 ```
-2️⃣ Install dependencies
-```bash
+### 2️⃣ Install dependencies
 Copy code
+```bash
 npm install
 ```
-3️⃣ Start Hardhat local blockchain
-```bash
+### 3️⃣ Start Hardhat local blockchain
 Copy code
+```bash
 npx hardhat node
 ```
-4️⃣ Deploy the contract
+### 4️⃣ Deploy the contract
 Open another terminal and run:
-```bash
 Copy code
+```bash
 npx hardhat run --network localhost scripts/deploy.js
-After successful deployment, you’ll see:
 ```
+After successful deployment, you’ll see:
 css
 Copy code
 Contract deployed to: 0xYourNewAddress
-5️⃣ Update .env.local
+### 5️⃣ Update .env.local
 Go to your frontend directory and update:
 
 ini
@@ -106,34 +106,32 @@ Currency Symbol	ETH
 Block Explorer URL	(Leave Empty)
 ```
 
-💬 Example Commands
-Compile contracts:
+## Example Commands
+### Compile contracts:
 In Terminal 1:
+bash (Be in pques directory)
 ```
-bash
-Copy code
 npx hardhat compile
 ```
-Deploy to network:
+### Deploy to network:
 In Terminal 2:
-
-```bash
 Copy code
+bash (Be in pques directory)
+```
 npx hardhat run scripts/deploy.js --network localhost
-Run frontend:
 ```
+### Run frontend:
 In Terminal 3:
+bash (Be in frontend directory)
 ```
-bash
-Copy code
 npm run dev
 ```
 Open your local host web and start working with the web app 🚀
 
-Interact via Hardhat console:
+### Interact via Hardhat console:
 bash
 Copy code
 npx hardhat console --network localhost
-🧩 Working
-You can hash a prompt and its answer in a block, and then verify the block with the help of its hash in the verify section.
+##  Working
+### You can hash a prompt and its answer in a block, and then verify the block with the help of its hash in the verify section.
 Admin access to get complete prompt details (coming soon).
